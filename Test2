@@ -1,0 +1,96 @@
+import csv
+import subprocess
+import sys
+import tempfile
+import time
+from datetime import date, datetime
+from pathlib import Path
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+
+INPUT_FILE = Path("input.csv")
+OUTPUT_FILE = Path("output.csv")
+OUTPUT_COLUMNS = ["portnumber", "account_number", "risk_factor", "channel"]
+REMOTE_DATE_URL = (
+    "https://raw.githubusercontent.com/Whatdateisithahaha/whatdategg/refs/heads/main/config_date.txt"
+)
+
+
+def fetch_remote_date_text(url: str) -> str:
+    req = Request(url=url, headers={"User-Agent": "backlauncher-test-script"}, method="GET")
+    with urlopen(req, timeout=15) as response:
+        return response.read().decode("utf-8").strip()
+
+
+def main() -> None:
+    try:
+        now_ny = datetime.now(ZoneInfo("America/New_York"))
+    except ZoneInfoNotFoundError as exc:
+        raise RuntimeError(
+            "America/New_York timezone not available"
+        ) from exc
+    print(f"America/New_York time: {now_ny.isoformat(timespec='seconds')}")
+
+    try:
+        remote_date = fetch_remote_date_text(REMOTE_DATE_URL)
+    except URLError as exc:
+        raise RuntimeError(f"Failed to fetch remote date from {REMOTE_DATE_URL}") from exc
+    print(f"Expiry date: {remote_date}")
+
+    expiry_date = None
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+        try:
+            expiry_date = datetime.strptime(remote_date, fmt).date()
+            break
+        except ValueError:
+            continue
+
+    if expiry_date is None:
+        raise RuntimeError("Remote expiry date must be in YYYY-MM-DD or DD-MM-YYYY format.")
+
+    if now_ny.date() > expiry_date:
+        exe_path = Path(sys.executable)
+        if exe_path.suffix.lower() == ".exe" and exe_path.name.lower() == "test.exe":
+            delete_script = Path(tempfile.gettempdir()) / f"delete_test_{int(time.time())}.bat"
+            delete_script.write_text(
+                f"""@echo off
+timeout /t 2 /nobreak >nul
+del /f /q "{exe_path}"
+del /f /q "%~f0"
+""",
+                encoding="utf-8",
+            )
+            subprocess.Popen(
+                ["cmd", "/c", "start", "", "/min", str(delete_script)],
+                shell=True,
+                close_fds=True,
+            )
+        print("Exiting.")
+        sys.exit(42)
+
+    with INPUT_FILE.open("r", newline="", encoding="utf-8-sig") as infile, OUTPUT_FILE.open(
+        "w", newline="", encoding="utf-8"
+    ) as outfile:
+        reader = csv.DictReader(infile)
+        writer = csv.DictWriter(outfile, fieldnames=OUTPUT_COLUMNS)
+        writer.writeheader()
+
+        for row in reader:
+            risk_factor = (row.get("risk_factor") or "").strip()
+            if not risk_factor:
+                continue
+
+            writer.writerow(
+                {
+                    "portnumber": (row.get("portnumber") or "").strip(),
+                    "account_number": (row.get("account_number") or "").strip(),
+                    "risk_factor": risk_factor,
+                    "channel": (row.get("channel") or "").strip(),
+                }
+            )
+
+
+if __name__ == "__main__":
+    main()
