@@ -1,0 +1,35 @@
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+TEST_EXE = ROOT / "test.exe"
+STABLE_EXE = ROOT / "stable.exe"
+EXPIRED_EXIT_CODE = 42
+
+
+def run_executable(path: Path):
+    if not path.exists():
+        return None
+    return subprocess.run([str(path)], check=False).returncode
+
+
+def main() -> None:
+    rc = run_executable(TEST_EXE)
+    if rc is None:
+        rc = run_executable(STABLE_EXE)
+        sys.exit(rc or 1)
+
+    if rc == EXPIRED_EXIT_CODE:
+        try:
+            TEST_EXE.unlink()
+        except Exception:
+            pass
+        rc = run_executable(STABLE_EXE)
+        sys.exit(rc or 1)
+
+    sys.exit(rc)
+
+
+if __name__ == "__main__":
+    main()
