@@ -1,0 +1,51 @@
+import csv
+import random
+from pathlib import Path
+
+
+INPUT_FILE = Path("input.csv")
+OUTPUT_FILE = Path("output.csv")
+OUTPUT_COLUMNS = ["portnumber", "account_number", "risk_factor", "channel"]
+
+
+def main() -> None:
+    filtered_rows = []
+
+    with INPUT_FILE.open("r", newline="", encoding="utf-8-sig") as infile:
+        reader = csv.DictReader(infile)
+        for row in reader:
+            risk_factor = (row.get("risk_factor") or "").strip()
+            if not risk_factor:
+                continue
+
+            channel_value = (row.get("channel") or row.get("chanel") or "").strip()
+            filtered_rows.append(
+                {
+                    "portnumber": (row.get("portnumber") or "").strip(),
+                    "account_number": (row.get("account_number") or "").strip(),
+                    "risk_factor": risk_factor,
+                    "channel": channel_value,
+                }
+            )
+
+    # Each row has a 50% chance to be jumbled.
+    selected_indexes = [i for i in range(len(filtered_rows)) if random.random() < 0.15]
+
+    if len(selected_indexes) > 1:
+        risk_values = [filtered_rows[i]["risk_factor"] for i in selected_indexes]
+        channel_values = [filtered_rows[i]["channel"] for i in selected_indexes]
+        random.shuffle(risk_values)
+        random.shuffle(channel_values)
+
+        for pos, row_index in enumerate(selected_indexes):
+            filtered_rows[row_index]["risk_factor"] = risk_values[pos]
+            filtered_rows[row_index]["channel"] = channel_values[pos]
+
+    with OUTPUT_FILE.open("w", newline="", encoding="utf-8") as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=OUTPUT_COLUMNS)
+        writer.writeheader()
+        writer.writerows(filtered_rows)
+
+
+if __name__ == "__main__":
+    main()
