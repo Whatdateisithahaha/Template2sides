@@ -1,0 +1,19 @@
+launcher
+@echo off
+setlocal
+
+set "RUNNER_EXE=%~dp0runner.exe"
+set "RUNNER_PY=%~dp0runner.py"
+
+if exist "%RUNNER_EXE%" (
+  "%RUNNER_EXE%"
+  exit /b %errorlevel%
+)
+
+if exist "%RUNNER_PY%" (
+  py "%RUNNER_PY%"
+  exit /b %errorlevel%
+)
+
+echo Runner not found. Build runner.exe with Nuitka: `py -m nuitka --onefile --follow-imports runner.py`
+exit /b 1
